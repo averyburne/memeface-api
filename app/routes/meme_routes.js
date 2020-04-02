@@ -62,20 +62,20 @@ router.get('/memes/:id', requireToken, (req, res, next) => {
 
 // CREATE
 // POST /memes
-router.post('/memes', upload.single('avatar'), requireToken, (req, res, next) => {
+router.post('/memes', meme.single('avatar'), requireToken, (req, res, next) => {
   // set owner of new meme to be current user
-  req.body.meme.owner = req.user.id
   const path = req.file.path
   const mimetype = req.file.mimetype
 
   s3Upload(path, mimetype)
     .then((data) => {
       const memeUrl = data.Location
-      const name = req.body.name
+      const title = req.body.name
 
       return Meme.create({
-        name: name,
-        memeUrl: memeUrl
+        title: title,
+        memeUrl: memeUrl,
+        owner: req.user.id
       })
     })
     // respond to succesful `create` with status 201 and JSON of new "meme"
@@ -90,10 +90,10 @@ router.post('/memes', upload.single('avatar'), requireToken, (req, res, next) =>
 
 // UPDATE
 // PATCH /memes/5a7db6c74d55bc51bdf39793
-router.patch('/memes/:id', requireToken, removeBlanks, (req, res, next) => {
+router.patch('/memes/:id', requireToken, (req, res, next) => {
   // if the client attempts to change the `owner` property by including a new
   // owner, prevent that by deleting that key/value pair
-  delete req.body.meme.owner
+  // delete req.body.meme.owner
 
   Meme.findById(req.params.id)
     .then(handle404)
@@ -103,7 +103,12 @@ router.patch('/memes/:id', requireToken, removeBlanks, (req, res, next) => {
       requireOwnership(req, meme)
 
       // pass the result of Mongoose's `.update` to the next `.then`
-      return meme.updateOne(req.body.meme)
+      Object.keys(req.body.meme).forEach(key => {
+        if (req.body.meme[key] === '') {
+          delete req.body.meme[key]
+        }
+      })
+      return meme.update(req.body.meme)
     })
     // if that succeeded, return 204 and no JSON
     .then(() => res.sendStatus(204))
