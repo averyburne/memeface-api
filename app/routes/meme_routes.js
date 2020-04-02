@@ -49,7 +49,6 @@ router.get('/memes', requireToken, (req, res, next) => {
 })
 
 // SHOW
-// GET /memes/5a7db6c74d55bc51bdf39793
 router.get('/memes/:id', requireToken, (req, res, next) => {
   // req.params.id will be set based on the `:id` in the route
   Meme.findById(req.params.id)
@@ -62,11 +61,11 @@ router.get('/memes/:id', requireToken, (req, res, next) => {
 
 // CREATE
 // POST /memes
-router.post('/memes', meme.single('avatar'), requireToken, (req, res, next) => {
+router.post('/memes', [meme.single('avatar'), requireToken], (req, res, next) => {
   // set owner of new meme to be current user
   const path = req.file.path
   const mimetype = req.file.mimetype
-
+  console.log(req)
   s3Upload(path, mimetype)
     .then((data) => {
       const memeUrl = data.Location
@@ -90,25 +89,27 @@ router.post('/memes', meme.single('avatar'), requireToken, (req, res, next) => {
 
 // UPDATE
 // PATCH /memes/5a7db6c74d55bc51bdf39793
-router.patch('/memes/:id', requireToken, (req, res, next) => {
+router.patch('/memes/:id', [meme.single('avatar'), requireToken], (req, res, next) => {
   // if the client attempts to change the `owner` property by including a new
   // owner, prevent that by deleting that key/value pair
   // delete req.body.meme.owner
-
   Meme.findById(req.params.id)
     .then(handle404)
     .then(meme => {
       // pass the `req` object and the Mongoose record to `requireOwnership`
       // it will throw an error if the current user isn't the owner
       requireOwnership(req, meme)
-
       // pass the result of Mongoose's `.update` to the next `.then`
-      Object.keys(req.body.meme).forEach(key => {
-        if (req.body.meme[key] === '') {
-          delete req.body.meme[key]
-        }
+      // Object.keys(req.body.meme).forEach(key => {
+      //   console.log(meme)
+      //   if (req.body.meme[key] === '') {
+      //     delete req.body.meme[key]
+      //   }
+      // })
+      const title = req.body.name
+      return meme.update({
+        title: title
       })
-      return meme.update(req.body.meme)
     })
     // if that succeeded, return 204 and no JSON
     .then(() => res.sendStatus(204))
