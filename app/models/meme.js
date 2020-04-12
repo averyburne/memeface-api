@@ -3,9 +3,9 @@ const mongoose = require('mongoose')
 const memeSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true
+    required: false
   },
-  memeUrl: {
+  file: {
     type: String,
     required: true
   },

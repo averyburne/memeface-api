@@ -4,7 +4,7 @@ const passport = require('passport')
 
 // set up multer for file upload
 const multer = require('multer')
-const meme = multer({ dest: 'memes/' })
+const upload = multer({ dest: 'memes/' })
 
 // pull in Mongoose model for memes
 const Meme = require('../models/meme')
@@ -61,19 +61,23 @@ router.get('/memes/:id', requireToken, (req, res, next) => {
 
 // CREATE
 // POST /memes
-router.post('/memes', [meme.single('avatar'), requireToken], (req, res, next) => {
+router.post('/memes', upload.single('file'), requireToken, (req, res, next) => {
   // set owner of new meme to be current user
+  console.log('hello')
+  console.log(req.file)
   const path = req.file.path
   const mimetype = req.file.mimetype
-  console.log(req)
+  console.log(path)
+  console.log(mimetype)
   s3Upload(path, mimetype)
     .then((data) => {
+      console.log('hello2')
       const memeUrl = data.Location
       const title = req.body.name
 
       return Meme.create({
         title: title,
-        memeUrl: memeUrl,
+        file: memeUrl,
         owner: req.user.id
       })
     })
@@ -89,7 +93,7 @@ router.post('/memes', [meme.single('avatar'), requireToken], (req, res, next) =>
 
 // UPDATE
 // PATCH /memes/5a7db6c74d55bc51bdf39793
-router.patch('/memes/:id', [meme.single('avatar'), requireToken], (req, res, next) => {
+router.patch('/memes/:id', upload.single('file'), requireToken, (req, res, next) => {
   // if the client attempts to change the `owner` property by including a new
   // owner, prevent that by deleting that key/value pair
   // delete req.body.meme.owner
