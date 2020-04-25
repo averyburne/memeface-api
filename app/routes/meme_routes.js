@@ -61,11 +61,10 @@ router.get('/memes/:id', requireToken, (req, res, next) => {
 
 // CREATE
 // POST /memes
-router.post('/memes', [meme.single('avatar'), requireToken], (req, res, next) => {
+router.post('/memes', [meme.single('file'), requireToken], (req, res, next) => {
   // set owner of new meme to be current user
   const path = req.file.path
   const mimetype = req.file.mimetype
-  console.log(req)
   s3Upload(path, mimetype)
     .then((data) => {
       const memeUrl = data.Location
