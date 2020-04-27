@@ -2,8 +2,14 @@ const express = require('express')
 // Passport docs: http://www.passportjs.org/docs/
 const passport = require('passport')
 
+// set up multer for file upload
+const multer = require('multer')
+const meme = multer({ dest: 'memes/' })
+
 // pull in Mongoose model for memes
 const Meme = require('../models/meme')
+// require our custom s3upload function
+const s3Upload = require('./../../lib/s3Upload')
 
 // this is a collection of methods that help us detect situations when we need
 // to throw a custom error
@@ -43,7 +49,6 @@ router.get('/memes', requireToken, (req, res, next) => {
 })
 
 // SHOW
-// GET /memes/5a7db6c74d55bc51bdf39793
 router.get('/memes/:id', requireToken, (req, res, next) => {
   // req.params.id will be set based on the `:id` in the route
   Meme.findById(req.params.id)
@@ -56,11 +61,21 @@ router.get('/memes/:id', requireToken, (req, res, next) => {
 
 // CREATE
 // POST /memes
-router.post('/memes', requireToken, (req, res, next) => {
+router.post('/memes', [meme.single('file'), requireToken], removeBlanks, (req, res, next) => {
   // set owner of new meme to be current user
-  req.body.meme.owner = req.user.id
+  const path = req.file.path
+  const mimetype = req.file.mimetype
+  s3Upload(path, mimetype)
+    .then((data) => {
+      const memeUrl = data.Location
+      const title = req.body.name
 
-  Meme.create(req.body.meme)
+      return Meme.create({
+        title: title,
+        memeUrl: memeUrl,
+        owner: req.user.id
+      })
+    })
     // respond to succesful `create` with status 201 and JSON of new "meme"
     .then(meme => {
       res.status(201).json({ meme: meme.toObject() })
@@ -73,20 +88,27 @@ router.post('/memes', requireToken, (req, res, next) => {
 
 // UPDATE
 // PATCH /memes/5a7db6c74d55bc51bdf39793
-router.patch('/memes/:id', requireToken, removeBlanks, (req, res, next) => {
+router.patch('/memes/:id', [meme.single('avatar'), requireToken], (req, res, next) => {
   // if the client attempts to change the `owner` property by including a new
   // owner, prevent that by deleting that key/value pair
-  delete req.body.meme.owner
-
+  // delete req.body.meme.owner
   Meme.findById(req.params.id)
     .then(handle404)
     .then(meme => {
       // pass the `req` object and the Mongoose record to `requireOwnership`
       // it will throw an error if the current user isn't the owner
       requireOwnership(req, meme)
-
       // pass the result of Mongoose's `.update` to the next `.then`
-      return meme.updateOne(req.body.meme)
+      // Object.keys(req.body.meme).forEach(key => {
+      //   console.log(meme)
+      //   if (req.body.meme[key] === '') {
+      //     delete req.body.meme[key]
+      //   }
+      // })
+      const title = req.body.name
+      return meme.update({
+        title: title
+      })
     })
     // if that succeeded, return 204 and no JSON
     .then(() => res.sendStatus(204))
